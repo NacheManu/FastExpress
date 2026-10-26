@@ -1,0 +1,16 @@
+{
+  "name": "@fastexpress/backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API REST de FastExpress: reglas de negocio y cálculo de tarifas de envío.",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  }
+}
