@@ -16,5 +16,12 @@ export default defineConfig({
     // material-color-utilities publica imports ESM sin extensión que Node no resuelve;
     // se procesa con Vite igual que en el navegador.
     server: { deps: { inline: ['@material/material-color-utilities'] } },
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: ['src/main.tsx', 'src/vite-env.d.ts', 'src/test/**', 'src/**/*.test.{ts,tsx}'],
+      reporter: [['text', { skipFull: false }], 'html', 'json-summary'],
+      reportsDirectory: 'coverage',
+    },
   },
 });
