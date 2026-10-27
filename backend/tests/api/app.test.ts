@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../../src/api/app.js';
 import { ShippingService } from '../../src/application/shipping-service.js';
 import { InMemoryOrderRepository } from '../../src/infrastructure/in-memory-order-repository.js';
@@ -191,5 +191,49 @@ describe('FastExpress API', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('NOT_FOUND');
+  });
+
+  it('responde 413 si el cuerpo supera el tamaño máximo', async () => {
+    const res = await request(app)
+      .post('/api/v1/pricing/quote')
+      .send({ ...validShipment, padding: 'x'.repeat(20_000) });
+
+    expect(res.status).toBe(413);
+    expect(res.body.error.code).toBe('BAD_REQUEST');
+  });
+
+  describe('errores inesperados', () => {
+    function appWithFailingRepository(failure: unknown) {
+      const shippingService = new ShippingService({
+        orderRepository: {
+          save: () => Promise.reject(failure),
+          findById: () => Promise.reject(failure),
+          findAll: () => Promise.reject(failure),
+        },
+      });
+      return createApp({ shippingService });
+    }
+
+    beforeEach(() => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it.each([
+      { caso: 'un Error', failure: new Error('base de datos caída') },
+      { caso: 'un valor que no es un objeto', failure: 'fallo' },
+      { caso: 'un objeto con status 5xx', failure: { status: 503, message: 'no disponible' } },
+    ])('responde 500 sin filtrar detalles cuando se lanza $caso', async ({ failure }) => {
+      const res = await request(appWithFailingRepository(failure)).get('/api/v1/orders');
+
+      expect(res.status).toBe(500);
+      expect(res.body).toEqual({
+        error: { code: 'INTERNAL_ERROR', message: 'Ha ocurrido un error inesperado.' },
+      });
+      expect(console.error).toHaveBeenCalledWith(failure);
+    });
   });
 });
