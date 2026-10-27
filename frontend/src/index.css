@@ -110,6 +110,25 @@
     background-color: var(--md-sys-color-primary-container);
     color: var(--md-sys-color-on-primary-container);
   }
+
+  /*
+   * Iconos de Material Symbols. Se usa una clase propia dentro de la capa base en lugar de
+   * la de Google (que no tiene capa y ganaría a utilidades como `hidden`).
+   */
+  .icon {
+    display: inline-block;
+    font-family: 'Material Symbols Rounded';
+    font-weight: normal;
+    font-style: normal;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
 /* Escala tipográfica de M3. */

@@ -12,7 +12,7 @@ export function Icon({ name, filled = false, size = 24, className }: IconProps) 
   return (
     <span
       aria-hidden="true"
-      className={cn('material-symbols-rounded shrink-0 select-none leading-none', className)}
+      className={cn('icon shrink-0 select-none', className)}
       style={{
         fontSize: size,
         fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'opsz' ${Math.min(Math.max(size, 20), 48)}`,
