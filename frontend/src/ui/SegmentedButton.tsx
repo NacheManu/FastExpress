@@ -68,7 +68,7 @@ export function SegmentedButton<T extends string>({
             disabled={disabled}
             onClick={() => onChange(option.value)}
             className={cn(
-              'state-layer flex min-w-0 flex-1 items-center justify-center gap-2 px-3 type-label-large',
+              '@container state-layer flex min-w-0 flex-1 items-center justify-center gap-2 px-3 type-label-large',
               'transition-colors duration-200 ease-emphasized focus-visible:outline-none',
               'focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-secondary',
               'disabled:cursor-not-allowed disabled:text-on-surface/38',
@@ -76,7 +76,12 @@ export function SegmentedButton<T extends string>({
               selected ? 'bg-secondary-container text-on-secondary-container' : 'text-on-surface',
             )}
           >
-            {icon && <Icon name={icon} size={18} className="max-[379px]:hidden" />}
+            {/* En segmentos estrechos se omite el icono para que quepa la etiqueta. */}
+            {icon && (
+              <span className="flex @max-[7.5rem]:hidden">
+                <Icon name={icon} size={18} />
+              </span>
+            )}
             <span className="truncate">{option.label}</span>
           </button>
         );
