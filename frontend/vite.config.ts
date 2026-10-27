@@ -20,8 +20,10 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['src/main.tsx', 'src/vite-env.d.ts', 'src/test/**', 'src/**/*.test.{ts,tsx}'],
-      reporter: [['text', { skipFull: false }], 'html', 'json-summary'],
+      // skipEmpty omite los archivos que solo declaran tipos (sin código ejecutable).
+      reporter: [['text', { skipFull: false, skipEmpty: true, maxCols: 120 }], 'html', 'json-summary'],
       reportsDirectory: 'coverage',
+      thresholds: { lines: 85, branches: 85, functions: 85, statements: 85 },
     },
   },
 });

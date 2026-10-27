@@ -126,3 +126,25 @@ describe('useQuoteViewModel', () => {
     expect(service.quote).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('useQuoteViewModel: errores inesperados', () => {
+  it('usa un mensaje general si el fallo no viene de la API', async () => {
+    const service = fakeService(async () => {
+      throw new Error('caída');
+    });
+    const { result } = setup(service);
+
+    act(() => result.current.setWeight('1'));
+
+    await waitFor(() => expect(result.current.error).toBe('No se pudo calcular la tarifa. Inténtalo de nuevo.'));
+  });
+
+  it('marca las tarifas como no disponibles si no se pueden cargar', async () => {
+    const service = fakeService();
+    service.getRules.mockRejectedValueOnce(new Error('sin backend'));
+    const { result } = setup(service);
+
+    await waitFor(() => expect(result.current.rulesFailed).toBe(true));
+    expect(result.current.rules).toBeNull();
+  });
+});

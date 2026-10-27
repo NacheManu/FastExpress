@@ -55,3 +55,26 @@ describe('useOrdersViewModel', () => {
     expect(result.current.hasOrders).toBe(true);
   });
 });
+
+describe('useOrdersViewModel: errores y cancelación', () => {
+  it('usa un mensaje general ante un error que no es de la API', async () => {
+    const service = fakeOrderService(ORDERS);
+    service.list.mockRejectedValueOnce(new Error('caída'));
+    const { result } = renderHook(() => useOrdersViewModel({ orderService: service }));
+
+    await waitFor(() => expect(result.current.error).toBe('No se pudieron cargar las órdenes.'));
+  });
+
+  it('ignora la respuesta si la vista se desmontó antes', async () => {
+    const service = fakeOrderService(ORDERS);
+    let fail: (error: Error) => void = () => {};
+    service.list.mockReturnValueOnce(new Promise((_resolve, reject) => (fail = reject)));
+    const { result, unmount } = renderHook(() => useOrdersViewModel({ orderService: service }));
+
+    unmount();
+    fail(new Error('tarde'));
+    await Promise.resolve();
+
+    expect(result.current.status).toBe('loading');
+  });
+});

@@ -56,3 +56,23 @@ describe('useCreateOrderViewModel', () => {
     expect(result.current.submitError).toBeNull();
   });
 });
+
+describe('useCreateOrderViewModel: errores del envío', () => {
+  it.each([
+    ['un error inesperado', new Error('caída'), 'No se pudo crear la orden. Inténtalo de nuevo.'],
+    ['un error de la API sin detalle del nombre', new ApiError(500, 'INTERNAL_ERROR', 'Error del servidor.'), 'Error del servidor.'],
+  ])('muestra un mensaje general ante %s', async (_caso, failure, message) => {
+    const service = fakeOrderService();
+    service.create.mockRejectedValueOnce(failure);
+    const { result } = renderHook(() => useCreateOrderViewModel({ orderService: service }));
+
+    act(() => result.current.setCustomerName('Ana'));
+    await act(async () => {
+      await result.current.submit(SHIPMENT);
+    });
+
+    expect(result.current.submitError).toBe(message);
+    expect(result.current.nameError).toBeNull();
+    expect(result.current.customerName).toBe('Ana');
+  });
+});
