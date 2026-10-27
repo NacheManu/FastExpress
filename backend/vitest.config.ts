@@ -9,7 +9,8 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       // Punto de entrada: solo compone dependencias y abre el puerto.
       exclude: ['src/server.ts'],
-      reporter: [['text', { skipFull: false }], 'html', 'json-summary'],
+      // skipEmpty omite los archivos que solo declaran tipos (sin código ejecutable).
+      reporter: [['text', { skipFull: false, skipEmpty: true, maxCols: 120 }], 'html', 'json-summary'],
       reportsDirectory: 'coverage',
       thresholds: { lines: 85, branches: 85, functions: 85, statements: 85 },
     },
