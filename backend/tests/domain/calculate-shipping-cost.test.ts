@@ -41,7 +41,7 @@ describe('calculateShippingCost', () => {
       const act = () => calculateShippingCost(shipment({ weightKg }));
 
       expect(act).toThrow(WeightLimitExceededError);
-      expect(act).toThrow(/límite permitido de 20.00 kg/);
+      expect(act).toThrow('El peso máximo permitido es 20 kg. Reduce el peso e inténtalo de nuevo.');
     });
 
     it.each([0, -1, 0.001, 2.555, Number.NaN, Number.POSITIVE_INFINITY])(
@@ -87,16 +87,18 @@ describe('calculateShippingCost', () => {
   });
 
   describe('reglas combinadas', () => {
-    it('calcula descuento y recargo sobre el mismo subtotal', () => {
+    it('aplica el recargo sobre el subtotal con descuento (en cadena)', () => {
       const result = calculateShippingCost({ weightKg: 10, customerType: 'VIP', shippingType: 'EXPRESS' });
 
+      // 45.00 × 0.80 × 1.25 = 45.00
       expect(result).toMatchObject({
         baseFeeCents: 500,
         weightChargeCents: 4000,
         subtotalCents: 4500,
         discountCents: 900,
-        surchargeCents: 1125,
-        totalCents: 4725,
+        subtotalAfterDiscountCents: 3600,
+        surchargeCents: 900,
+        totalCents: 4500,
       });
     });
 
@@ -109,8 +111,18 @@ describe('calculateShippingCost', () => {
 
       expect(result.subtotalCents).toBe(506);
       expect(result.discountCents).toBe(51); // 50.6
-      expect(result.surchargeCents).toBe(127); // 126.5
-      expect(result.totalCents).toBe(582);
+      expect(result.subtotalAfterDiscountCents).toBe(455);
+      expect(result.surchargeCents).toBe(114); // 113.75
+      expect(result.totalCents).toBe(569);
+    });
+
+    it('redondea medio centavo hacia arriba en el recargo encadenado', () => {
+      const result = calculateShippingCost({ weightKg: 10, customerType: 'FRECUENTE', shippingType: 'EXPRESS' });
+
+      // 45.00 × 0.90 = 40.50; 40.50 × 25 % = 10.125 → 10.13
+      expect(result.subtotalAfterDiscountCents).toBe(4050);
+      expect(result.surchargeCents).toBe(1013);
+      expect(result.totalCents).toBe(5063);
     });
   });
 });

@@ -65,36 +65,56 @@ describe('FastExpress API', () => {
           subtotal: 45,
           discountPercent: 20,
           discount: 9,
+          subtotalAfterDiscount: 36,
           surchargePercent: 25,
-          surcharge: 11.25,
-          total: 47.25,
+          surcharge: 9,
+          total: 45,
         },
       });
     });
 
-    it('rechaza con 422 un envío de más de 20 kg', async () => {
+    it('rechaza con 422 un envío de más de 20 kg, indicando el campo y el motivo', async () => {
       const res = await request(app)
         .post('/api/v1/pricing/quote')
         .send({ ...validShipment, weightKg: 20.01 });
 
       expect(res.status).toBe(422);
-      expect(res.body.error.code).toBe('WEIGHT_LIMIT_EXCEEDED');
+      expect(res.body.error).toEqual({
+        code: 'WEIGHT_LIMIT_EXCEEDED',
+        message: 'El peso máximo permitido es 20 kg. Reduce el peso e inténtalo de nuevo.',
+        details: [{ field: 'weightKg', message: 'El peso máximo permitido es 20 kg. Reduce el peso e inténtalo de nuevo.' }],
+      });
     });
 
-    it('rechaza con 400 un peso inválido', async () => {
+    it('rechaza con 422 un peso que no es positivo', async () => {
       const res = await request(app)
         .post('/api/v1/pricing/quote')
         .send({ ...validShipment, weightKg: 0 });
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(422);
       expect(res.body.error.code).toBe('INVALID_WEIGHT');
       expect(res.body.error.details).toEqual([{ field: 'weightKg', message: 'El peso mínimo es 0.01 kg.' }]);
     });
 
-    it('rechaza con 400 los campos ausentes o con valores no permitidos', async () => {
+    it('rechaza con 422 un tipo de cliente desconocido', async () => {
       const res = await request(app)
         .post('/api/v1/pricing/quote')
-        .send({ weightKg: '10', customerType: 'GOLD' });
+        .send({ ...validShipment, customerType: 'GOLD' });
+
+      expect(res.status).toBe(422);
+      expect(res.body.error).toEqual({
+        code: 'INVALID_CUSTOMER_TYPE',
+        message: 'El tipo de cliente "GOLD" no existe. Valores permitidos: NUEVO, FRECUENTE, VIP.',
+        details: [
+          { field: 'customerType', message: 'El tipo de cliente "GOLD" no existe. Valores permitidos: NUEVO, FRECUENTE, VIP.' },
+        ],
+      });
+    });
+
+    it('rechaza con 400 los campos ausentes o con tipo incorrecto', async () => {
+      const res = await request(app)
+        .post('/api/v1/pricing/quote')
+        .send({ weightKg: '10', customerType: 7 });
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');
@@ -133,7 +153,7 @@ describe('FastExpress API', () => {
         createdAt: '2026-10-26T12:00:00.000Z',
         shipment: validShipment,
         currency: 'USD',
-        breakdown: { total: 47.25 },
+        breakdown: { total: 45 },
       });
     });
 

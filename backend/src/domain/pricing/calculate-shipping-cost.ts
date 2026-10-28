@@ -17,21 +17,23 @@ export interface ShippingCostBreakdown {
   subtotalCents: number;
   discountPercent: number;
   discountCents: number;
+  subtotalAfterDiscountCents: number;
   surchargePercent: number;
   surchargeCents: number;
   totalCents: number;
 }
 
 /**
- * Calcula la tarifa de un envío aplicando BR-01 a BR-04:
+ * Calcula la tarifa de un envío aplicando BR-01 a BR-04 en cadena:
  *
- *   subtotal  = tarifa base (BR-01) + peso × tarifa del tramo (BR-02)
- *   descuento = subtotal × % según el tipo de cliente (BR-03)
- *   recargo   = subtotal × % según el tipo de envío (BR-04)
- *   total     = subtotal − descuento + recargo
+ *   subtotal               = tarifa base (BR-01) + peso × tarifa del tramo (BR-02)
+ *   descuento              = subtotal × % según el tipo de cliente (BR-03)
+ *   subtotal con descuento = subtotal − descuento
+ *   recargo                = subtotal con descuento × % según el tipo de envío (BR-04)
+ *   total                  = subtotal con descuento + recargo
  *
- * Descuento y recargo se calculan sobre el subtotal, por lo que el orden en que se
- * aplican no cambia el resultado. Cada porcentaje se redondea al centavo más cercano.
+ * Es el orden que fija el marco teórico del proyecto: el factor final sobre el subtotal
+ * es (1 − descuento) × (1 + recargo). Cada porcentaje se redondea al centavo más cercano.
  *
  * @throws InvalidWeightError si el peso no es válido.
  * @throws WeightLimitExceededError si el peso supera el máximo (BR-02).
@@ -49,7 +51,8 @@ export function calculateShippingCost(
   const discountPercent = rules.customerDiscountPercent[shipment.customerType];
   const surchargePercent = rules.shippingSurchargePercent[shipment.shippingType];
   const discountCents = percentOf(subtotalCents, discountPercent);
-  const surchargeCents = percentOf(subtotalCents, surchargePercent);
+  const subtotalAfterDiscountCents = subtotalCents - discountCents;
+  const surchargeCents = percentOf(subtotalAfterDiscountCents, surchargePercent);
 
   return {
     currency: rules.currency,
@@ -59,9 +62,10 @@ export function calculateShippingCost(
     subtotalCents,
     discountPercent,
     discountCents,
+    subtotalAfterDiscountCents,
     surchargePercent,
     surchargeCents,
-    totalCents: subtotalCents - discountCents + surchargeCents,
+    totalCents: subtotalAfterDiscountCents + surchargeCents,
   };
 }
 

@@ -18,6 +18,7 @@ export function presentBreakdown(breakdown: ShippingCostBreakdown) {
     subtotal: toAmount(breakdown.subtotalCents),
     discountPercent: breakdown.discountPercent,
     discount: toAmount(breakdown.discountCents),
+    subtotalAfterDiscount: toAmount(breakdown.subtotalAfterDiscountCents),
     surchargePercent: breakdown.surchargePercent,
     surcharge: toAmount(breakdown.surchargeCents),
     total: toAmount(breakdown.totalCents),

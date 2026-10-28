@@ -1,7 +1,7 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { OrderNotFoundError } from '../application/errors.js';
-import { DomainError, InvalidWeightError } from '../domain/errors.js';
+import { DomainError } from '../domain/errors.js';
 
 export interface ApiErrorBody {
   error: {
@@ -19,6 +19,12 @@ export const notFoundHandler: RequestHandler = (req, res) => {
   res.status(404).json(errorBody('NOT_FOUND', `Ruta no encontrada: ${req.method} ${req.path}`));
 };
 
+/**
+ * Política de códigos (marco teórico del proyecto):
+ *   400: petición mal formada (JSON inválido, campo ausente o de tipo incorrecto).
+ *   422: petición bien formada que incumple una regla de negocio (peso ≤ 0 o > 20 kg,
+ *        más de 2 decimales, tipo de cliente o de envío desconocido), con el campo y el motivo.
+ */
 export const errorHandler: ErrorRequestHandler = (err: unknown, _req, res, _next) => {
   if (err instanceof ZodError) {
     const details = err.issues.map((issue) => ({ field: issue.path.join('.'), message: issue.message }));
@@ -26,16 +32,8 @@ export const errorHandler: ErrorRequestHandler = (err: unknown, _req, res, _next
     return;
   }
 
-  if (err instanceof InvalidWeightError) {
-    res
-      .status(400)
-      .json(errorBody(err.code, err.message, [{ field: 'weightKg', message: err.message }]));
-    return;
-  }
-
   if (err instanceof DomainError) {
-    // Regla de negocio incumplida con datos bien formados (p. ej. peso por encima del límite).
-    res.status(422).json(errorBody(err.code, err.message));
+    res.status(422).json(errorBody(err.code, err.message, [{ field: err.field, message: err.message }]));
     return;
   }
 

@@ -26,13 +26,13 @@ describe('Particiones de equivalencia: Monto', () => {
       id: 'EP-M-04',
       clase: 'total en [4.02, 106.25]',
       shipment: { weightKg: 10, customerType: 'VIP', shippingType: 'EXPRESS' },
-      expected: { subtotal: 45, discount: 9, surcharge: 11.25, total: 47.25 },
+      expected: { subtotal: 45, discount: 9, subtotalAfterDiscount: 36, surcharge: 9, total: 45 },
     },
     {
       id: 'EP-M-05',
       clase: 'monto con fracción de centavo (se redondea)',
       shipment: { weightKg: 0.03, customerType: 'FRECUENTE', shippingType: 'EXPRESS' },
-      expected: { subtotal: 5.06, discount: 0.51, surcharge: 1.27, total: 5.82 },
+      expected: { subtotal: 5.06, discount: 0.51, subtotalAfterDiscount: 4.55, surcharge: 1.14, total: 5.69 },
     },
   ])('$id $clase', async ({ shipment, expected }) => {
     const res = await api.quote(shipment);

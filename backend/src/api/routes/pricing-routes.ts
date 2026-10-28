@@ -11,8 +11,8 @@ export function pricingRoutes(service: ShippingService): Router {
   });
 
   router.post('/quote', (req, res) => {
-    const shipment = shipmentSchema.parse(req.body);
-    res.json(presentQuote(shipment, service.quote(shipment)));
+    const { shipment, pricing } = service.quote(shipmentSchema.parse(req.body));
+    res.json(presentQuote(shipment, pricing));
   });
 
   return router;

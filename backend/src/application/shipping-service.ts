@@ -5,12 +5,18 @@ import {
   type ShippingCostBreakdown,
 } from '../domain/pricing/calculate-shipping-cost.js';
 import { PRICING_RULES, type PricingRules } from '../domain/pricing/pricing-rules.js';
-import type { Shipment } from '../domain/pricing/shipment.js';
+import { toShipment, type Shipment, type ShipmentInput } from '../domain/pricing/shipment.js';
 import { OrderNotFoundError } from './errors.js';
 import type { OrderRepository } from './ports/order-repository.js';
 
-export interface CreateOrderInput extends Shipment {
+export interface CreateOrderInput extends ShipmentInput {
   customerName: string;
+}
+
+/** Envío validado junto con su tarifa. */
+export interface Quotation {
+  shipment: Shipment;
+  pricing: ShippingCostBreakdown;
 }
 
 export interface ShippingServiceDeps {
@@ -38,16 +44,22 @@ export class ShippingService {
     return this.rules;
   }
 
-  quote(shipment: Shipment): ShippingCostBreakdown {
-    return calculateShippingCost(shipment, this.rules);
+  /**
+   * Valida los tipos de cliente y de envío y calcula la tarifa.
+   * @throws DomainError si el envío incumple alguna regla de negocio.
+   */
+  quote(input: ShipmentInput): Quotation {
+    const shipment = toShipment(input);
+    return { shipment, pricing: calculateShippingCost(shipment, this.rules) };
   }
 
-  async createOrder({ customerName, ...shipment }: CreateOrderInput): Promise<Order> {
+  async createOrder({ customerName, ...input }: CreateOrderInput): Promise<Order> {
+    const { shipment, pricing } = this.quote(input);
     const order: Order = {
       id: this.generateId(),
       customerName,
       shipment,
-      pricing: this.quote(shipment),
+      pricing,
       createdAt: this.now(),
     };
 
