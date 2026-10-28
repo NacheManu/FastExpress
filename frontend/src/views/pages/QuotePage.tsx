@@ -61,7 +61,7 @@ export function QuotePage() {
           ref={summaryRef}
           quote={quoteVm.quote}
           isQuoting={quoteVm.isQuoting}
-          rejection={quoteVm.rejection}
+          invalidInput={Boolean(quoteVm.weightError)}
           error={quoteVm.error}
           onRetry={quoteVm.retry}
           className="expanded:sticky expanded:top-20"

@@ -29,6 +29,7 @@ const quoteFor = (shipment: Shipment): Quote => ({
     subtotal: 5 + shipment.weightKg * 2,
     discountPercent: 0,
     discount: 0,
+    subtotalAfterDiscount: 5 + shipment.weightKg * 2,
     surchargePercent: 0,
     surcharge: 0,
     total: 5 + shipment.weightKg * 2,
@@ -75,40 +76,74 @@ describe('useQuoteViewModel', () => {
     );
   });
 
-  it('marca un error de formato sin llamar al backend', () => {
+  it('marca un error de formato sin llamar al backend', async () => {
     const service = fakeService();
     const { result } = setup(service);
 
     act(() => result.current.setWeight('abc'));
 
-    expect(result.current.weightError).toMatch(/peso válido/);
+    await waitFor(() => expect(result.current.weightError).toMatch(/peso válido/));
     expect(result.current.isQuoting).toBe(false);
     expect(service.quote).not.toHaveBeenCalled();
   });
 
-  it('expone el rechazo del envío cuando se supera el límite de peso', async () => {
-    const service = fakeService(async () => {
-      throw new ApiError(422, 'WEIGHT_LIMIT_EXCEEDED', 'Envío rechazado: supera 20.00 kg.');
-    });
+  it.each([
+    ['25', 'El peso máximo permitido es 20 kg. Reduce el peso e inténtalo de nuevo.'],
+    ['0', 'El peso mínimo es 0.01 kg.'],
+    ['2.555', 'El peso admite como máximo 2 decimales.'],
+  ])('valida en el cliente el peso "%s" con los límites de BR-02, sin llamar al backend', async (weight, message) => {
+    const service = fakeService();
     const { result } = setup(service);
+    await waitFor(() => expect(result.current.rules).not.toBeNull());
+
+    act(() => result.current.setWeight(weight));
+
+    await waitFor(() => expect(result.current.weightError).toBe(message));
+    expect(result.current.quote).toBeNull();
+    expect(service.quote).not.toHaveBeenCalled();
+  });
+
+  it('no muestra el error del cliente hasta que el usuario deja de escribir', async () => {
+    const service = fakeService();
+    const { result } = renderHook(() => useQuoteViewModel({ pricingService: service, debounceMs: 50 }));
+    await waitFor(() => expect(result.current.rules).not.toBeNull());
+
+    act(() => result.current.setWeight('0'));
+    expect(result.current.weightError).toBeNull();
+
+    act(() => result.current.setWeight('0.5'));
+    await waitFor(() => expect(result.current.quote?.breakdown.total).toBe(6));
+    expect(result.current.weightError).toBeNull();
+  });
+
+  it('sin reglas disponibles, muestra en el campo el rechazo 422 del backend', async () => {
+    const message = 'El peso máximo permitido es 20 kg. Reduce el peso e inténtalo de nuevo.';
+    const service = fakeService(async () => {
+      throw new ApiError(422, 'WEIGHT_LIMIT_EXCEEDED', message, [{ field: 'weightKg', message }]);
+    });
+    service.getRules.mockRejectedValueOnce(new Error('sin backend'));
+    const { result } = setup(service);
+    await waitFor(() => expect(result.current.rulesFailed).toBe(true));
 
     act(() => result.current.setWeight('25'));
 
-    await waitFor(() => expect(result.current.rejection).toBe('Envío rechazado: supera 20.00 kg.'));
+    await waitFor(() => expect(result.current.weightError).toBe(message));
     expect(result.current.quote).toBeNull();
+    expect(result.current.error).toBeNull();
   });
 
-  it('muestra el error de validación del backend en el campo de peso', async () => {
+  it('un error de la API sin detalle del peso se muestra como error general', async () => {
     const service = fakeService(async () => {
-      throw new ApiError(400, 'INVALID_WEIGHT', 'El peso mínimo es 0.01 kg.', [
-        { field: 'weightKg', message: 'El peso mínimo es 0.01 kg.' },
+      throw new ApiError(422, 'INVALID_CUSTOMER_TYPE', 'Tipo de cliente desconocido.', [
+        { field: 'customerType', message: 'Tipo de cliente desconocido.' },
       ]);
     });
     const { result } = setup(service);
 
-    act(() => result.current.setWeight('0'));
+    act(() => result.current.setWeight('3'));
 
-    await waitFor(() => expect(result.current.weightError).toBe('El peso mínimo es 0.01 kg.'));
+    await waitFor(() => expect(result.current.error).toBe('Tipo de cliente desconocido.'));
+    expect(result.current.weightError).toBeNull();
   });
 
   it('permite reintentar tras un error de red', async () => {

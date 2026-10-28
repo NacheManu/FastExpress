@@ -16,9 +16,10 @@ export function buildOrder(overrides: Partial<Order> = {}): Order {
       subtotal: 45,
       discountPercent: 20,
       discount: 9,
+      subtotalAfterDiscount: 36,
       surchargePercent: 25,
-      surcharge: 11.25,
-      total: 47.25,
+      surcharge: 9,
+      total: 45,
     },
     ...overrides,
   };

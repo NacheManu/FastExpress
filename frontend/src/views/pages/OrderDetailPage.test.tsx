@@ -38,7 +38,7 @@ describe('OrderDetailPage', () => {
     expect(await screen.findByRole('heading', { name: 'Orden #3F2A9C1E' })).toBeInTheDocument();
     expect(orderService.get).toHaveBeenCalledWith(ORDER.id, expect.any(AbortSignal));
     expect(screen.getByText('Ana Pérez')).toBeInTheDocument();
-    expect(screen.getAllByText('$47.25').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('$45.00').length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('button', { name: 'Volver a órdenes' }));
 

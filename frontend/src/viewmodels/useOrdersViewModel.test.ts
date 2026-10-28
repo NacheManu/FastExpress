@@ -25,8 +25,8 @@ describe('useOrdersViewModel', () => {
     expect(result.current.stats).toEqual({
       count: 2,
       expressCount: 1,
-      revenue: 56.35,
-      averageTicket: 28.18,
+      revenue: 54.1,
+      averageTicket: 27.05,
       currency: 'USD',
     });
   });

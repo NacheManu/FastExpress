@@ -17,7 +17,8 @@ import { PriceBreakdownList } from './PriceBreakdownList';
 interface QuoteSummaryProps {
   quote: Quote | null;
   isQuoting: boolean;
-  rejection: string | null;
+  /** Hay un dato inválido en el formulario; su mensaje se muestra junto al campo. */
+  invalidInput: boolean;
   error: string | null;
   onRetry: () => void;
   /** Acciones bajo el desglose (p. ej. crear la orden). */
@@ -29,7 +30,7 @@ interface QuoteSummaryProps {
 export function QuoteSummary({
   quote,
   isQuoting,
-  rejection,
+  invalidInput,
   error,
   onRetry,
   children,
@@ -37,14 +38,7 @@ export function QuoteSummary({
   ref,
 }: QuoteSummaryProps) {
   let content: ReactNode;
-  if (rejection) {
-    content = (
-      <StatusPanel icon="block" title="Límite de peso excedido" tone="error">
-        <p>{rejection}</p>
-        <p className="mt-2">Reduce el peso o divide el contenido en varios envíos.</p>
-      </StatusPanel>
-    );
-  } else if (error) {
+  if (error) {
     content = (
       <StatusPanel icon="cloud_off" title="No se pudo calcular la tarifa" tone="error">
         <p>{error}</p>
@@ -68,6 +62,12 @@ export function QuoteSummary({
     content = (
       <StatusPanel icon="calculate" title="Calculando tarifa…">
         <LinearProgress label="Calculando tarifa" className="mt-2" />
+      </StatusPanel>
+    );
+  } else if (invalidInput) {
+    content = (
+      <StatusPanel icon="edit_note" title="Corrige el peso para ver la tarifa">
+        <p>Revisa el mensaje junto al campo Peso del paquete.</p>
       </StatusPanel>
     );
   } else {

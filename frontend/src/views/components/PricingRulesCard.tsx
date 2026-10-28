@@ -93,7 +93,7 @@ function RulesContent({ rules }: { rules: PricingRules }) {
         </RuleGroup>
       </div>
       <p className="type-body-small mt-3 px-1 text-on-surface-variant">
-        El descuento y el recargo se aplican sobre el subtotal (tarifa base + cargo por peso).
+        El descuento se aplica sobre el subtotal (tarifa base + cargo por peso) y el recargo, sobre el subtotal con descuento.
       </p>
     </>
   );

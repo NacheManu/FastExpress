@@ -105,7 +105,7 @@ export function ShipmentForm({
           />
           {surcharge !== undefined && (
             <p className="type-body-small px-4 text-on-surface-variant">
-              {surcharge > 0 ? `+${formatPercent(surcharge)} de recargo sobre el subtotal` : 'Sin recargo'}
+              {surcharge > 0 ? `+${formatPercent(surcharge)} de recargo sobre el subtotal con descuento` : 'Sin recargo'}
             </p>
           )}
         </div>

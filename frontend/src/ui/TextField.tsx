@@ -70,14 +70,16 @@ export function TextField({
           )}
         />
       </div>
-      {message && (
-        <p
-          id={messageId}
-          className={cn('type-body-small px-4 pt-1', error ? 'text-error' : 'text-on-surface-variant')}
-        >
-          {message}
-        </p>
-      )}
+      <div aria-live="polite">
+        {message && (
+          <p
+            id={messageId}
+            className={cn('type-body-small px-4 pt-1', error ? 'text-error' : 'text-on-surface-variant')}
+          >
+            {message}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

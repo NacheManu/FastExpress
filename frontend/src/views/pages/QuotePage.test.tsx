@@ -46,6 +46,7 @@ const quoteFor = (shipment: Shipment, total: number): Quote => ({
     subtotal: total,
     discountPercent: 0,
     discount: 0,
+    subtotalAfterDiscount: total,
     surchargePercent: 0,
     surcharge: 0,
     total,
@@ -98,34 +99,36 @@ describe('QuotePage (caja negra en la UI)', () => {
 
     await user.type(weight, 'abc');
 
-    expect(screen.getByText(/Ingresa un peso válido/)).toBeInTheDocument();
+    expect(await screen.findByText(/Ingresa un peso válido/)).toBeInTheDocument();
     expect(weight).toHaveAttribute('aria-invalid', 'true');
     expect(quote).not.toHaveBeenCalled();
   });
 
-  it('UI-04 peso por encima del límite: muestra el rechazo del envío', async () => {
-    quote.mockRejectedValue(
-      new ApiError(422, 'WEIGHT_LIMIT_EXCEEDED', 'Envío rechazado: el peso (25 kg) supera el límite permitido de 20.00 kg.'),
-    );
+  it('UI-04 peso por encima del límite (servidor, 422): mensaje junto al campo y valor conservado', async () => {
+    const message = 'El peso máximo permitido es 20 kg. Reduce el peso e inténtalo de nuevo.';
+    quote.mockRejectedValue(new ApiError(422, 'WEIGHT_LIMIT_EXCEEDED', message, [{ field: 'weightKg', message }]));
     const { user, weight } = renderPage();
 
     await user.type(weight, '25');
 
-    expect(await screen.findByText('Límite de peso excedido')).toBeInTheDocument();
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(weight).toHaveAccessibleDescription(message);
+    expect(weight).toHaveAttribute('aria-invalid', 'true');
+    expect(weight).toHaveValue('25');
+    expect(screen.getByText('Corrige el peso para ver la tarifa')).toBeInTheDocument();
     expect(screen.queryByText('Total a pagar')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Crear orden/ })).not.toBeInTheDocument();
   });
 
-  it('UI-05 peso por debajo del mínimo: muestra el mensaje del backend en el campo', async () => {
-    quote.mockRejectedValue(
-      new ApiError(400, 'INVALID_WEIGHT', 'El peso mínimo es 0.01 kg.', [
-        { field: 'weightKg', message: 'El peso mínimo es 0.01 kg.' },
-      ]),
-    );
+  it('UI-05 peso no positivo (servidor, 422): muestra el mensaje del backend en el campo', async () => {
+    const message = 'El peso mínimo es 0.01 kg.';
+    quote.mockRejectedValue(new ApiError(422, 'INVALID_WEIGHT', message, [{ field: 'weightKg', message }]));
     const { user, weight } = renderPage();
 
     await user.type(weight, '0');
 
-    expect(await screen.findByText('El peso mínimo es 0.01 kg.')).toBeInTheDocument();
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(weight).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('UI-06 cambiar cliente y envío vuelve a cotizar con la nueva combinación', async () => {
@@ -155,6 +158,33 @@ describe('QuotePage: crear orden, tarifas y estados', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it('UI-16 peso por encima del límite (cliente): mensaje junto al campo sin llamar al backend', async () => {
+    const message = 'El peso máximo permitido es 20 kg. Reduce el peso e inténtalo de nuevo.';
+    const { user, weight } = renderPage();
+    await screen.findByText('Entre 0.01 kg y 20 kg, con hasta 2 decimales.');
+
+    await user.type(weight, '25');
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.getByText(message).closest('[aria-live]')).toHaveAttribute('aria-live', 'polite');
+    expect(weight).toHaveAccessibleDescription(message);
+    expect(weight).toHaveValue('25');
+    expect(quote).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['0', 'El peso mínimo es 0.01 kg.'],
+    ['2,555', 'El peso admite como máximo 2 decimales.'],
+  ])('UI-17 peso "%s" fuera de las reglas (cliente): mismo mensaje que el backend', async (value, message) => {
+    const { user, weight } = renderPage();
+    await screen.findByText('Entre 0.01 kg y 20 kg, con hasta 2 decimales.');
+
+    await user.type(weight, value);
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(quote).not.toHaveBeenCalled();
   });
 
   it('UI-07 crea la orden, limpia el formulario y permite abrirla desde el aviso', async () => {
@@ -227,7 +257,7 @@ describe('QuotePage: crear orden, tarifas y estados', () => {
     await user.click(screen.getByRole('radio', { name: 'VIP' }));
     await user.click(screen.getByRole('radio', { name: 'Express' }));
     expect(screen.getByText('20% de descuento sobre el subtotal')).toBeInTheDocument();
-    expect(screen.getByText('+25% de recargo sobre el subtotal')).toBeInTheDocument();
+    expect(screen.getByText('+25% de recargo sobre el subtotal con descuento')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Limpiar/ }));
     expect(weight).toHaveValue('');

@@ -42,14 +42,14 @@ describe('OrdersPage', () => {
     expect(screen.getByRole('progressbar', { name: 'Cargando órdenes' })).toBeInTheDocument();
     const list = await screen.findByRole('list');
 
-    expect(screen.getByText('Facturado').closest('div')).toHaveTextContent('$56.25');
+    expect(screen.getByText('Facturado').closest('div')).toHaveTextContent('$54.00');
     expect(screen.getByText('1 express')).toBeInTheDocument();
     const items = within(list).getAllByRole('link');
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveAttribute('href', '/ordenes/aaaa1111-0000');
     expect(items[0]).toHaveTextContent('JG');
     expect(items[0]).toHaveTextContent('#AAAA1111');
-    expect(items[0]).toHaveTextContent('$47.25');
+    expect(items[0]).toHaveTextContent('$45.00');
     expect(screen.getByRole('link', { name: /Nueva orden/ })).toHaveAttribute('href', '/');
   });
 

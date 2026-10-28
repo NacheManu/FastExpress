@@ -14,6 +14,7 @@ export interface PriceBreakdown {
   subtotal: number;
   discountPercent: number;
   discount: number;
+  subtotalAfterDiscount: number;
   surchargePercent: number;
   surcharge: number;
   total: number;

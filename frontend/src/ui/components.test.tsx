@@ -100,6 +100,7 @@ describe('TextField', () => {
     const input = screen.getByLabelText('Nombre');
     expect(input).toHaveAttribute('aria-invalid', 'true');
     expect(input).toHaveAccessibleDescription('Obligatorio');
+    expect(screen.getByText('Obligatorio').closest('[aria-live]')).toHaveAttribute('aria-live', 'polite');
     expect(screen.queryByText('Ayuda')).not.toBeInTheDocument();
   });
 });

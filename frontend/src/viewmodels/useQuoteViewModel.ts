@@ -16,7 +16,6 @@ const INITIAL_FORM: QuoteForm = { weight: '', customerType: 'NUEVO', shippingTyp
 type QuoteOutcome =
   | { type: 'quote'; quote: Quote }
   | { type: 'invalid'; message: string }
-  | { type: 'rejected'; message: string }
   | { type: 'error'; message: string };
 
 interface QuoteViewModelOptions {
@@ -28,13 +27,12 @@ interface QuoteViewModelOptions {
 const requestKey = (shipment: Shipment, attempt: number) =>
   `${shipment.weightKg}|${shipment.customerType}|${shipment.shippingType}|${attempt}`;
 
+/** Un rechazo del peso por parte del backend (400 o 422) se muestra junto al campo, igual que en el cliente. */
 function toOutcome(error: unknown): QuoteOutcome {
   if (error instanceof ApiError) {
-    if (error.code === 'WEIGHT_LIMIT_EXCEEDED') {
-      return { type: 'rejected', message: error.message };
-    }
-    if (error.status === 400) {
-      return { type: 'invalid', message: error.details[0]?.message ?? error.message };
+    const weightIssue = error.details.find((detail) => detail.field === 'weightKg');
+    if (weightIssue) {
+      return { type: 'invalid', message: weightIssue.message };
     }
     return { type: 'error', message: error.message };
   }
@@ -42,9 +40,9 @@ function toOutcome(error: unknown): QuoteOutcome {
 }
 
 /**
- * ViewModel del cotizador: mantiene el formulario, pide la tarifa al backend mientras el
- * usuario escribe (con debounce y cancelando peticiones obsoletas) y expone el estado
- * listo para pintar.
+ * ViewModel del cotizador: mantiene el formulario, valida el peso con los límites de BR-02,
+ * pide la tarifa al backend mientras el usuario escribe (con debounce y cancelando
+ * peticiones obsoletas) y expone el estado listo para pintar.
  */
 export function useQuoteViewModel({
   pricingService = defaultPricingService,
@@ -55,10 +53,21 @@ export function useQuoteViewModel({
   const [rulesFailed, setRulesFailed] = useState(false);
   const [result, setResult] = useState<{ key: string; outcome: QuoteOutcome } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [settledWeight, setSettledWeight] = useState(form.weight);
 
-  const weight = parseWeightInput(form.weight);
+  // Sin reglas (backend caído) no se validan los límites en el cliente; los valida el backend.
+  const limits = rules ? { minKg: rules.minWeightKg, maxKg: rules.maxWeightKg } : undefined;
+  const weight = parseWeightInput(form.weight, limits);
   const weightKg = weight.kind === 'valid' ? weight.value : null;
   const { customerType, shippingType } = form;
+
+  // El error del cliente se muestra cuando el usuario deja de escribir, para no avisar de un
+  // valor a medias (p. ej. "0" antes de completar "0.5").
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettledWeight(form.weight), debounceMs);
+    return () => window.clearTimeout(timer);
+  }, [form.weight, debounceMs]);
+  const clientError = weight.kind === 'invalid' && settledWeight === form.weight ? weight.message : null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -123,8 +132,8 @@ export function useQuoteViewModel({
     /** Cotización vigente; mientras se recalcula se mantiene la anterior (ver isQuoting). */
     quote: current?.type === 'quote' ? current.quote : isQuoting ? lastQuote : null,
     isQuoting,
-    weightError: weight.kind === 'invalid' ? weight.message : current?.type === 'invalid' ? current.message : null,
-    rejection: current?.type === 'rejected' ? current.message : null,
+    /** Error del peso, del cliente o del backend; se muestra junto al campo. */
+    weightError: clientError ?? (current?.type === 'invalid' ? current.message : null),
     error: current?.type === 'error' ? current.message : null,
     setWeight,
     setCustomerType,

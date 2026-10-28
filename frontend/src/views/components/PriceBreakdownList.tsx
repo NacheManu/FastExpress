@@ -25,7 +25,7 @@ function Row({ label, hint, value, strong }: { label: string; hint?: string; val
 
 const Divider = () => <div role="separator" className="my-1 h-px bg-outline-variant" />;
 
-/** Desglose de la tarifa (BR-01 a BR-04) tal como lo calcula el backend. */
+/** Desglose de la tarifa (BR-01 a BR-04) tal como lo calcula el backend: descuento y recargo en cadena. */
 export function PriceBreakdownList({ shipment, breakdown, currency, className }: PriceBreakdownListProps) {
   const money = (amount: number) => formatCurrency(amount, currency);
 
@@ -48,10 +48,13 @@ export function PriceBreakdownList({ shipment, breakdown, currency, className }:
           </span>
         }
       />
+      <Row label="Subtotal con descuento" value={money(breakdown.subtotalAfterDiscount)} />
       <Row
         label={`Recargo envío ${SHIPPING_TYPE_LABELS[shipment.shippingType]}`}
         hint={
-          breakdown.surchargePercent > 0 ? `+${formatPercent(breakdown.surchargePercent)} del subtotal` : 'Sin recargo'
+          breakdown.surchargePercent > 0
+            ? `+${formatPercent(breakdown.surchargePercent)} del subtotal con descuento`
+            : 'Sin recargo'
         }
         value={breakdown.surcharge > 0 ? `+${money(breakdown.surcharge)}` : money(0)}
       />
