@@ -50,23 +50,25 @@ El backend lee `backend/.env` si existe (ver `backend/.env.example`).
 El cálculo está en [`backend/src/domain/pricing/calculate-shipping-cost.ts`](backend/src/domain/pricing/calculate-shipping-cost.ts):
 
 ```
-subtotal  = tarifa base + peso × tarifa del tramo
-descuento = subtotal × % del tipo de cliente
-recargo   = subtotal × % del tipo de envío
-total     = subtotal − descuento + recargo
+subtotal               = tarifa base + peso × tarifa del tramo
+descuento              = subtotal × % del tipo de cliente
+subtotal con descuento = subtotal − descuento
+recargo                = subtotal con descuento × % del tipo de envío
+total                  = subtotal con descuento + recargo
 ```
 
-Ejemplo: 10 kg, cliente VIP, envío EXPRESS → subtotal $45.00 (5 + 10 × 4), descuento −$9.00, recargo +$11.25, **total $47.25**.
+Ejemplo: 10 kg, cliente VIP, envío EXPRESS → subtotal $45.00 (5 + 10 × 4), descuento −$9.00, subtotal con descuento $36.00, recargo +$9.00, **total $45.00** (factor 0.80 × 1.25 = 1.00).
 
-### Interpretaciones
+### Supuestos de trabajo
 
-El enunciado deja algunos puntos abiertos; estas son las decisiones tomadas:
+El enunciado deja puntos abiertos. El proyecto sigue los supuestos del marco teórico del equipo («Marco Teórico y Matriz de Mapeo – FastExpress»), pendientes de confirmar con el docente:
 
-- **Tramo completo, no progresivo.** Todo el peso se cobra a la tarifa del tramo en que cae (10 kg → 10 × $4.00), no los primeros 5 kg a $2.00 y el resto a $4.00.
-- **Descuento y recargo sobre el mismo subtotal.** BR-04 indica que el recargo se calcula "sobre la tarifa subtotal"; el descuento se aplica sobre esa misma base. Así el orden de aplicación no altera el resultado.
-- **Peso con 2 decimales como máximo.** Los tramos están definidos al centésimo (5.00 / 5.01), así que un peso como 2.555 kg se rechaza por inválido. El mínimo es 0.01 kg.
-- **Importes en centavos.** El dominio calcula con enteros para evitar errores de coma flotante y redondea cada porcentaje al centavo más cercano.
-- **Rechazo como error de negocio.** Un envío de más de 20 kg responde `422 Unprocessable Entity` (datos bien formados que incumplen una regla), mientras que un dato mal formado responde `400`.
+- **Tarifa plana por tramo.** Todo el peso se cobra a la tarifa del tramo en que cae (10 kg → 10 × $4.00), no los primeros 5 kg a $2.00 y el resto a $4.00.
+- **Descuento y recargo en cadena.** Primero el descuento de BR-03 sobre el subtotal y después el recargo de BR-04 sobre el subtotal con descuento: total = subtotal × (1 − descuento) × (1 + recargo).
+- **422 para las reglas de negocio.** Un peso ≤ 0 o > 20 kg, o un tipo de cliente o de envío desconocido, responde `422` indicando el campo y el motivo; una petición mal formada responde `400`.
+- **Monto.** Es el importe que calcula la tarifa (no un dato de entrada); sus clases y límites se prueban sobre el dominio de salida.
+
+Además, el peso admite como máximo 2 decimales (los tramos se definen al centésimo: 5.00 / 5.01) y el dominio calcula en centavos, redondeando cada porcentaje al centavo más cercano.
 
 Todas las tarifas están en un único lugar ([`pricing-rules.ts`](backend/src/domain/pricing/pricing-rules.ts)) y el frontend las obtiene de la API, por lo que no hay valores duplicados.
 
@@ -102,33 +104,37 @@ curl -X POST http://localhost:3000/api/v1/pricing/quote \
     "subtotal": 45,
     "discountPercent": 20,
     "discount": 9,
+    "subtotalAfterDiscount": 36,
     "surchargePercent": 25,
-    "surcharge": 11.25,
-    "total": 47.25
+    "surcharge": 9,
+    "total": 45
   }
 }
 ```
 
 **Crear una orden**: mismo cuerpo que la cotización más `customerName` (obligatorio, máximo 100 caracteres). Devuelve `201` con la cabecera `Location` y la orden (`id`, `customerName`, `createdAt`, `shipment`, `currency`, `breakdown`). `GET /orders` devuelve `{ "data": [...] }`.
 
-**Errores**: siempre con el mismo formato.
+**Errores**: siempre con el mismo formato. En los `422`, `details` indica el campo y el motivo.
 
 ```json
 {
   "error": {
     "code": "WEIGHT_LIMIT_EXCEEDED",
-    "message": "Envío rechazado: el peso (25 kg) supera el límite permitido de 20.00 kg."
+    "message": "El peso máximo permitido es 20 kg. Reduce el peso e inténtalo de nuevo.",
+    "details": [{ "field": "weightKg", "message": "El peso máximo permitido es 20 kg. Reduce el peso e inténtalo de nuevo." }]
   }
 }
 ```
 
 | Código                  | HTTP | Cuándo                                                    |
 | ----------------------- | ---- | --------------------------------------------------------- |
-| `VALIDATION_ERROR`      | 400  | Campos ausentes o con tipo/valor no permitido (`details`) |
-| `INVALID_WEIGHT`        | 400  | Peso por debajo de 0.01 kg o con más de 2 decimales       |
+| `VALIDATION_ERROR`      | 400  | Campos ausentes o con un tipo de dato incorrecto (`details`) |
 | `BAD_REQUEST`           | 400  | JSON mal formado                                          |
 | `BAD_REQUEST`           | 413  | Cuerpo de la petición de más de 10 KB                     |
+| `INVALID_WEIGHT`        | 422  | Peso ≤ 0 (mínimo 0.01 kg) o con más de 2 decimales        |
 | `WEIGHT_LIMIT_EXCEEDED` | 422  | Peso superior a 20 kg (BR-02)                             |
+| `INVALID_CUSTOMER_TYPE` | 422  | Tipo de cliente desconocido (BR-03)                       |
+| `INVALID_SHIPPING_TYPE` | 422  | Tipo de envío desconocido (BR-04)                         |
 | `ORDER_NOT_FOUND`       | 404  | La orden no existe                                        |
 | `NOT_FOUND`             | 404  | La ruta no existe                                         |
 | `INTERNAL_ERROR`        | 500  | Error inesperado (el detalle solo se registra en el servidor) |
@@ -170,6 +176,7 @@ frontend/src/
 - **View → ViewModel**: cada página crea su ViewModel (`useQuoteViewModel`, `useOrdersViewModel`…) y le pasa datos y callbacks a componentes de presentación.
 - **ViewModel → Model**: los ViewModels reciben los servicios por parámetro (con la implementación real por defecto), así que se prueban con dobles sin tocar la red.
 - El cotizador recalcula mientras se escribe, con *debounce* y cancelando las peticiones obsoletas (`AbortController`).
+- El formulario valida el peso con los límites que expone `GET /pricing/rules` y los mismos mensajes que el backend, que vuelve a validar cada petición. Los errores se muestran junto al campo Peso, en una región `aria-live`.
 
 ### Diseño Material You
 
@@ -182,10 +189,10 @@ frontend/src/
 
 | Proyecto | Pruebas | Líneas | Ramas |
 | -------- | ------- | ------ | ----- |
-| Backend  | 97      | 100 %  | 100 % |
-| Frontend | 111     | 99.5 % | 97.2 % |
+| Backend  | 107     | 100 %  | 100 % |
+| Frontend | 127     | 99.5 % | 97.5 % |
 
-- **Backend**: caja negra contra la API real (`tests/black-box/`: particiones de equivalencia y valores límite del peso y del monto, tabla de decisión cliente × envío), caja blanca por caminos independientes del cálculo (`tests/white-box/`), unitarias del dominio y pruebas de todos los endpoints con Supertest.
+- **Backend**: caja negra contra la API real (`tests/black-box/`: clases P1–P5 del peso y valores límite del marco teórico, particiones del monto, tabla de decisión cliente × envío), caja blanca por caminos independientes del cálculo (`tests/white-box/`), unitarias del dominio y pruebas de todos los endpoints con Supertest.
 - **Frontend**: ViewModels con servicios simulados, cliente HTTP, tema, componentes Material 3, navegación y páginas completas con Testing Library, incluido el flujo de crear una orden.
 
 Ambos proyectos exigen un mínimo de 85 % de líneas, ramas, funciones y sentencias. El informe HTML queda en `backend/coverage/` y `frontend/coverage/`.
@@ -198,4 +205,4 @@ Ambos proyectos exigen un mínimo de 85 % de líneas, ramas, funciones y sentenc
 2. **Caja blanca**: grafo de flujo de control del cálculo de la tarifa, complejidad ciclomática (V(G) = 8) y caminos independientes.
 3. **Cobertura**: capturas y análisis de la cobertura de backend y frontend frente al mínimo de 85 %.
 
-Cada caso del informe tiene su prueba automatizada con el mismo identificador (por ejemplo `BVA-P-06` o `C7`).
+Cada caso del informe tiene su prueba automatizada con el mismo identificador (por ejemplo `BVA-P-07` o `C7`). La sección 4 del informe mapea cada concepto del marco teórico con su evidencia.
